@@ -1,5 +1,5 @@
 /* Gestione Tavoli — service worker: precache degli asset e strategia cache-first. */
-const CACHE_VERSION = 'v1.0.1';
+const CACHE_VERSION = 'v1.0.2';
 const CACHE = `gestione-tavoli-${CACHE_VERSION}`;
 const FONT_CACHE = 'gestione-tavoli-fonts';
 

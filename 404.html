@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <title>Gestione Tavoli</title>
+  <script>
+    // GitHub Pages: un indirizzo come /comanda/sala/tavolo/1 non esiste come file.
+    // Lo riportiamo all'app con l'hash routing: /comanda/#/sala/tavolo/1
+    (function () {
+      var parts = location.pathname.split('/').filter(Boolean);
+      var onGithubIo = /\.github\.io$/.test(location.hostname);
+      var base = onGithubIo && parts.length ? '/' + parts.shift() + '/' : '/';
+      var rest = parts.join('/').replace(/\.html?$/, '').replace(/^index$/, '');
+      location.replace(base + (rest ? '#/' + rest : '') + location.search.replace(/^\?$/, ''));
+    })();
+  </script>
+</head>
+<body>
+  <p>Reindirizzamento a <a href="./">Gestione Tavoli</a>…</p>
+</body>
+</html>
