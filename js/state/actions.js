@@ -24,6 +24,8 @@ import { newId } from '../domain/ids.js';
 import { createSession, createSeatState, createOrderLine } from '../domain/models.js';
 import { findAllergenConflicts, normalizeAllergens as normAlg } from '../domain/allergens.js';
 import { sendableLines } from '../domain/session.js';
+import { computeBill, coverChargeFromSettings, paymentSummary } from '../domain/billing.js';
+import { PAYMENT_METHODS } from '../domain/models.js';
 
 const byId = (list, id, what = 'Elemento') => {
   const found = list.find((x) => x.id === id);
@@ -550,7 +552,61 @@ export function sendOrder(d, { sessionId, hold = [], now }) {
   return lines.map((l) => l.id);
 }
 
+/* ---------------------------------- Conto --------------------------------- */
+
+export function requestBill(d, { sessionId }) {
+  const s = getSession(d, sessionId);
+  s.status = 'bill_requested';
+}
+
+export function cancelBillRequest(d, { sessionId }) {
+  const s = getSession(d, sessionId);
+  s.status = 'open';
+}
+
+/** Registra un pagamento (parziale o totale), per posto o per importo. */
+export function addPayment(d, { sessionId, amountCents, method = 'contanti', seatIds = null, now }) {
+  const s = getSession(d, sessionId);
+  const amount = Math.round(Number(amountCents));
+  if (!Number.isInteger(amount) || amount <= 0) throw new DomainError('Importo non valido.');
+  if (!PAYMENT_METHODS.includes(method)) throw new DomainError('Metodo di pagamento non valido.');
+  const ids = seatIds && seatIds.length ? seatIds.filter((id) => s.seatsState.some((x) => x.seatId === id)) : null;
+  const payment = { id: newId(), amountCents: amount, method, seatIds: ids && ids.length ? ids : null, at: nowIso(now) };
+  s.payments.push(payment);
+  return payment.id;
+}
+
+export function removePayment(d, { sessionId, paymentId }) {
+  const s = getSession(d, sessionId);
+  byId(s.payments, paymentId, 'Pagamento');
+  s.payments = s.payments.filter((p) => p.id !== paymentId);
+}
+
+/**
+ * Chiude il tavolo: possibile con residuo = 0, oppure con conferma esplicita (force).
+ * Non si chiude con righe in bozza (mai inviate).
+ */
+export function closeSession(d, { sessionId, force = false, now }) {
+  const s = getSession(d, sessionId);
+  if (s.orderLines.some((l) => l.status === 'draft')) throw new DomainError('Ci sono righe in bozza: inviale o eliminale prima di chiudere.');
+  const coverChargeCents = coverChargeFromSettings(d.settings);
+  const bill = computeBill(s, { coverChargeCents });
+  const { residualCents } = paymentSummary(s, bill);
+  if (residualCents > 0 && !force) throw new DomainError('Il conto non è saldato: conferma la chiusura con residuo.', 'residual');
+  s.status = 'closed';
+  s.closedAt = nowIso(now);
+  s.heldCourses = [];
+  // Istantanea per i report (il coperto potrebbe cambiare in futuro).
+  s.billSnapshot = { totalCents: bill.totalCents, coverChargeCents, residualCents: Math.max(0, residualCents) };
+  return s.id;
+}
+
 export const actions = {
+  requestBill,
+  cancelBillRequest,
+  addPayment,
+  removePayment,
+  closeSession,
   openTable,
   cancelSession,
   setWaiter,
