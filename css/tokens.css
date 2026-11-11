@@ -1,0 +1,86 @@
+/* Gestione Tavoli — design tokens. Tema chiaro (default) + scuro ([data-theme="dark"]) */
+:root {
+  /* Colori base */
+  --color-bg: #F5F2EC;
+  --color-surface: #FFFFFF;
+  --color-surface-2: #ECE7DF;
+  --color-border: #D6CFC3;
+  --color-text: #1D1A16;
+  --color-text-muted: #5B544A;
+  --color-primary: #1B5B52;
+  --color-on-primary: #FFFFFF;
+  --color-danger: #B3261E;
+  --color-warning: #9A5B00;
+  --color-success: #2E6B34;
+  --color-info: #34519E;
+
+  /* Stati tavolo */
+  --status-free: #8C8478;
+  --status-open: #D3E6E1;
+  --status-active: #1B5B52;
+  --status-held: #E7A33A;
+  --status-bill: #5B3F9E;
+  --status-allergen: #C62828;
+
+  /* Tipografia */
+  --font-family: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-size-xs: 12px;
+  --font-size-sm: 14px;
+  --font-size-md: 16px;
+  --font-size-lg: 19px;
+  --font-size-xl: 23px;
+  --font-size-2xl: 30px;
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-bold: 600;
+
+  /* Spaziature, raggi, ombre */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-full: 999px;
+  --shadow-sm: 0 1px 2px rgba(40, 30, 15, .08);
+  --shadow-md: 0 4px 12px rgba(40, 30, 15, .10), 0 1px 3px rgba(40, 30, 15, .08);
+  --shadow-lg: 0 16px 40px rgba(40, 30, 15, .18), 0 4px 10px rgba(40, 30, 15, .08);
+
+  /* Interazione */
+  --touch-target: 48px;
+  --duration-fast: 120ms;
+  --duration-normal: 220ms;
+}
+
+[data-theme="dark"] {
+  --color-bg: #12110F;
+  --color-surface: #1C1A17;
+  --color-surface-2: #282520;
+  --color-border: #3D3831;
+  --color-text: #F2EEE7;
+  --color-text-muted: #B0A797;
+  --color-primary: #62B5A7;
+  --color-on-primary: #0B2420;
+  --color-danger: #F2766B;
+  --color-warning: #F0B060;
+  --color-success: #7BC67F;
+  --color-info: #93A8EE;
+
+  --status-free: #8F877A;
+  --status-open: #23403B;
+  --status-active: #62B5A7;
+  --status-held: #E7A33A;
+  --status-bill: #A98CF0;
+  --status-allergen: #FF5A4E;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, .4);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, .45);
+  --shadow-lg: 0 16px 40px rgba(0, 0, 0, .6);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root { --duration-fast: 0ms; --duration-normal: 0ms; }
+}
