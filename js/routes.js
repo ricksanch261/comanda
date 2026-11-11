@@ -30,6 +30,9 @@ tableExtensions.moreItems.push(adv.moveTableItem, adv.mergeTableItem, adv.closeI
 summaryExtensions.holdOptions = adv.holdOptions;
 tableExtensions.seatSubtotal = seatSubtotal;
 tableExtensions.moreItems.push(reopenItem);
+import dataView, { backupBanner, gettingStartedBanner } from './views/admin/data.js';
+import reportsView from './views/admin/reports.js';
+import { dashboardExtensions } from './views/admin/dashboard.js';
 import floorPlanView from './views/admin/floorPlan.js';
 import { tablesBarExtensions } from './views/admin/tables.js';
 import { h as hh, icon as ic } from './utils/dom.js';
@@ -53,10 +56,13 @@ export const routes = [
   { path: '/admin/menu/categorie', view: categoriesView, admin: true },
   { path: '/admin/menu/piatto/:id', view: menuItemView, admin: true },
   { path: '/admin/piantina/:areaId?', view: floorPlanView, admin: true },
+  { path: '/admin/dati', view: dataView, admin: true },
+  { path: '/admin/report', view: reportsView, admin: true },
   { path: '/admin/varianti', view: modifierGroupsView, admin: true },
   { path: '/admin/varianti/:id', view: modifierGroupDetailView, admin: true },
 ];
 
+dashboardExtensions.banners.push(gettingStartedBanner, backupBanner);
 tablesBarExtensions.push((areaId) => hh('a', { class: 'btn btn--sm', href: `#/admin/piantina/${areaId}` }, ic('map', 'icon--sm'), 'Piantina'));
 
 export function notFoundView() {
