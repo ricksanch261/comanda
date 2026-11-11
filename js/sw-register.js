@@ -3,21 +3,14 @@
  */
 import { h, icon } from './utils/dom.js';
 
-function showUpdateBanner(worker) {
+/** Avviso discreto: la nuova versione si attiva da sola e la pagina si ricarica. */
+function showUpdateBanner() {
   if (document.querySelector('.update-banner')) return;
   const banner = h('div', { class: 'banner banner--info update-banner', role: 'status' },
     icon('system_update'),
-    h('div', { class: 'banner__body' }, h('b', {}, 'Nuova versione disponibile')),
+    h('div', { class: 'banner__body' }, h('b', {}, 'Nuova versione disponibile'), ' — aggiornamento in corso…'),
     h('div', { class: 'banner__actions' },
-      h('button', { type: 'button', class: 'btn btn--sm btn--ghost', onClick: () => banner.remove() }, 'Dopo'),
-      h('button', {
-        type: 'button',
-        class: 'btn btn--sm btn--primary',
-        onClick: () => {
-          banner.remove();
-          worker.postMessage({ type: 'SKIP_WAITING' });
-        },
-      }, 'Aggiorna')));
+      h('button', { type: 'button', class: 'btn btn--sm btn--primary', onClick: () => location.reload() }, 'Aggiorna')));
   document.body.append(banner);
 }
 
@@ -32,12 +25,12 @@ export function registerServiceWorker() {
   window.addEventListener('load', async () => {
     try {
       const reg = await navigator.serviceWorker.register('service-worker.js');
-      if (reg.waiting && navigator.serviceWorker.controller) showUpdateBanner(reg.waiting);
+      if (reg.waiting && navigator.serviceWorker.controller) reg.waiting.postMessage({ type: 'SKIP_WAITING' });
       reg.addEventListener('updatefound', () => {
         const nw = reg.installing;
         if (!nw) return;
         nw.addEventListener('statechange', () => {
-          if (nw.state === 'installed' && navigator.serviceWorker.controller) showUpdateBanner(nw);
+          if (nw.state === 'installed' && navigator.serviceWorker.controller) showUpdateBanner();
         });
       });
       // Controlla aggiornamenti quando l'app torna in primo piano.

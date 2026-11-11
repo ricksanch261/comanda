@@ -1,5 +1,5 @@
 /* Gestione Tavoli — service worker: precache degli asset e strategia cache-first. */
-const CACHE_VERSION = 'v1.0.2';
+const CACHE_VERSION = 'v1.0.3';
 const CACHE = `gestione-tavoli-${CACHE_VERSION}`;
 const FONT_CACHE = 'gestione-tavoli-fonts';
 
@@ -83,18 +83,38 @@ const ASSETS = [
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE).then((cache) => cache.addAll(ASSETS.map((a) => new Request(a, { cache: 'reload' })))),
+    caches.open(CACHE).then((cache) =>
+      Promise.all(
+        ASSETS.map(async (path) => {
+          // Il parametro ?v= aggira anche la cache della CDN di GitHub Pages:
+          // così una versione non può mai mescolare file vecchi e nuovi.
+          const url = new URL(path, self.registration.scope);
+          url.searchParams.set('v', CACHE_VERSION);
+          const response = await fetch(url, { cache: 'no-store' });
+          if (!response.ok) throw new Error(`Precache fallito: ${path} (${response.status})`);
+          await cache.put(new URL(path, self.registration.scope).href, response);
+        }),
+      ),
+    ),
   );
-  // Al primo install attiva subito; gli aggiornamenti aspettano il consenso ("Aggiorna").
-  if (!self.registration.active) self.skipWaiting();
+  // Ogni nuova versione si attiva subito: niente pagine bloccate su file vecchi.
+  self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches
-      .keys()
-      .then((keys) => Promise.all(keys.filter((k) => k.startsWith('gestione-tavoli-') && k !== CACHE && k !== FONT_CACHE).map((k) => caches.delete(k))))
-      .then(() => self.clients.claim()),
+    (async () => {
+      const keys = await caches.keys();
+      const old = keys.filter((k) => k.startsWith('gestione-tavoli-') && k !== CACHE && k !== FONT_CACHE);
+      await Promise.all(old.map((k) => caches.delete(k)));
+      await self.clients.claim();
+      // Se c'era una versione precedente, ricarica le pagine aperte con i file nuovi
+      // (funziona anche se la pagina sta eseguendo codice vecchio).
+      if (old.length) {
+        const windows = await self.clients.matchAll({ type: 'window' });
+        await Promise.all(windows.map((c) => c.navigate(c.url).catch(() => {})));
+      }
+    })(),
   );
 });
 
