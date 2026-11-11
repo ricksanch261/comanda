@@ -552,6 +552,134 @@ export function sendOrder(d, { sessionId, hold = [], now }) {
   return lines.map((l) => l.id);
 }
 
+/* ------------------------- Portate, storni, servite ------------------------ */
+
+/** Trattiene una portata ("Segue"): le sue bozze non partono con "Invia comanda". */
+export function holdCourse(d, { sessionId, courseIndex }) {
+  const s = getSession(d, sessionId);
+  const c = checkCourse(d, courseIndex);
+  if (c === null) throw new DomainError('Portata non valida.');
+  if (!s.heldCourses.includes(c)) s.heldCourses.push(c);
+  s.heldCourses.sort((a, b) => a - b);
+}
+
+/** Rilascia una portata trattenuta senza inviarla. */
+export function releaseCourse(d, { sessionId, courseIndex }) {
+  const s = getSession(d, sessionId);
+  s.heldCourses = s.heldCourses.filter((c) => c !== courseIndex);
+}
+
+/** "Marcia": invia le righe in bozza della portata trattenuta. */
+export function marchCourse(d, { sessionId, courseIndex, now }) {
+  const s = getSession(d, sessionId);
+  if (!s.heldCourses.includes(courseIndex)) throw new DomainError('La portata non è in attesa.');
+  s.heldCourses = s.heldCourses.filter((c) => c !== courseIndex);
+  const at = nowIso(now);
+  const lines = s.orderLines.filter((l) => l.status === 'draft' && l.courseIndex === courseIndex);
+  for (const l of lines) {
+    l.status = 'sent';
+    l.sentAt = at;
+  }
+  return lines.map((l) => l.id);
+}
+
+export function markServed(d, { sessionId, lineIds, now }) {
+  const s = getSession(d, sessionId);
+  const at = nowIso(now);
+  let n = 0;
+  for (const id of lineIds) {
+    const l = byId(s.orderLines, id, 'Riga');
+    if (l.status !== 'sent') continue;
+    l.status = 'served';
+    l.servedAt = at;
+    n++;
+  }
+  return n;
+}
+
+/** Storno di una riga inviata: motivo obbligatorio, resta nello storico. */
+export function voidLine(d, { sessionId, lineId, reason }) {
+  const s = getSession(d, sessionId);
+  const l = byId(s.orderLines, lineId, 'Riga');
+  if (l.status === 'draft') throw new DomainError('Le bozze si eliminano, non si stornano.');
+  if (l.status === 'voided') throw new DomainError('Riga già stornata.');
+  if (!trimmed(reason)) throw new DomainError('Il motivo dello storno è obbligatorio.');
+  l.status = 'voided';
+  l.voidReason = trimmed(reason);
+}
+
+/** Sposta una riga (non stornata) su un altro posto, su più posti o sul tavolo. */
+export function moveLine(d, { sessionId, lineId, assignment, allergenOverride = false }) {
+  const s = getSession(d, sessionId);
+  const l = byId(s.orderLines, lineId, 'Riga');
+  if (l.status === 'voided') throw new DomainError('Le righe stornate non si spostano.');
+  const asg = validateAssignment(s, assignment);
+  const item = d.menuItems.find((m) => m.id === l.menuItemId);
+  const conflicts = item ? findAllergenConflicts(item.allergens, s, asg) : [];
+  if (conflicts.length && !allergenOverride) throw new DomainError('Allergene in conflitto: serve una conferma.', 'allergen');
+  l.assignment = asg;
+  if (conflicts.length) l.allergenOverride = true;
+}
+
+/* ------------------------- Sposta e unisci tavoli ------------------------- */
+
+function remapSeatIds(session, map) {
+  const m = (id) => map.get(id) ?? id;
+  for (const l of session.orderLines) if (l.assignment.seatIds) l.assignment.seatIds = l.assignment.seatIds.map(m);
+  for (const p of session.payments) if (p.seatIds) p.seatIds = p.seatIds.map(m);
+}
+
+/** Trasferisce il servizio su un tavolo libero. I posti vengono rimappati per posizione. */
+export function moveSession(d, { sessionId, toTableId }) {
+  const s = getSession(d, sessionId);
+  const to = byId(d.tables, toTableId, 'Tavolo');
+  if (to.id === s.tableId) throw new DomainError('Scegli un tavolo diverso.');
+  if (!to.active) throw new DomainError('Il tavolo è disattivato.');
+  if (openSessionForTable(d, to.id)) throw new DomainError(`Il tavolo ${to.label} non è libero.`);
+  const newSeats = [...to.seats].sort((a, b) => a.position - b.position);
+  const map = new Map();
+  const regular = s.seatsState.filter((x) => !x.isExtra);
+  const extras = s.seatsState.filter((x) => x.isExtra);
+  const next = [];
+  regular.forEach((st, i) => {
+    if (i < newSeats.length) {
+      map.set(st.seatId, newSeats[i].id);
+      next.push({ ...st, seatId: newSeats[i].id });
+    } else {
+      next.push({ ...st, isExtra: true, extraLabel: 'Extra' });
+    }
+  });
+  s.seatsState = [...next, ...extras];
+  // rinumera le etichette degli extra
+  let n = 1;
+  for (const st of s.seatsState) if (st.isExtra && /^Extra( \d+)?$/.test(st.extraLabel || 'Extra')) st.extraLabel = `Extra ${n++}`;
+  remapSeatIds(s, map);
+  s.tableId = to.id;
+}
+
+/** Unisce il servizio di B (source) in quello di A (target): i posti di B diventano extra di A. */
+export function mergeSessions(d, { targetSessionId, sourceSessionId }) {
+  if (targetSessionId === sourceSessionId) throw new DomainError('Scegli un altro tavolo.');
+  const a = getSession(d, targetSessionId);
+  const b = getSession(d, sourceSessionId);
+  const tb = byId(d.tables, b.tableId, 'Tavolo');
+  for (const st of b.seatsState) {
+    const label = st.isExtra ? st.extraLabel : tb.seats.find((x) => x.id === st.seatId)?.label ?? '?';
+    a.seatsState.push({ ...st, isExtra: true, extraLabel: `${tb.label}·${label}` });
+  }
+  a.orderLines.push(...b.orderLines);
+  a.payments.push(...b.payments);
+  a.heldCourses = [...new Set([...a.heldCourses, ...b.heldCourses])].sort((x, y) => x - y);
+  a.covers += b.covers;
+  if (b.openedAt < a.openedAt) a.openedAt = b.openedAt;
+  d.sessions = d.sessions.filter((x) => x.id !== b.id);
+}
+
+/** Salva in un colpo solo le posizioni dei tavoli (editor piantina). */
+export function setLayouts(d, { layouts }) {
+  for (const { id, layout } of layouts) setTableLayout(d, { id, layout });
+}
+
 /* ---------------------------------- Conto --------------------------------- */
 
 export function requestBill(d, { sessionId }) {
@@ -602,6 +730,15 @@ export function closeSession(d, { sessionId, force = false, now }) {
 }
 
 export const actions = {
+  holdCourse,
+  releaseCourse,
+  marchCourse,
+  markServed,
+  voidLine,
+  moveLine,
+  moveSession,
+  mergeSessions,
+  setLayouts,
   requestBill,
   cancelBillRequest,
   addPayment,

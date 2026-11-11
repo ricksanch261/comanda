@@ -11,6 +11,7 @@ export const ADMIN_SECTIONS = [
   { path: '/admin/impostazioni', icon: 'tune', title: 'Impostazioni', sub: (d) => 'Nome, coperto, portate, camerieri, PIN' },
   { path: '/admin/aree', icon: 'meeting_room', title: 'Aree e sale', sub: (d) => plural(d.areas.length, 'area', 'aree') },
   { path: '/admin/tavoli', icon: 'table_restaurant', title: 'Tavoli e posti', sub: (d) => plural(d.tables.length, 'tavolo', 'tavoli') },
+  { path: '/admin/piantina', icon: 'map', title: 'Piantina', sub: () => 'Disposizione dei tavoli per area' },
   { path: '/admin/menu', icon: 'menu_book', title: 'Menu', sub: (d) => `${plural(d.categories.length, 'categoria', 'categorie')} · ${plural(d.menuItems.length, 'piatto', 'piatti')}` },
   { path: '/admin/varianti', icon: 'tune', title: 'Gruppi di varianti', sub: (d) => plural(d.modifierGroups.length, 'gruppo', 'gruppi') },
 ];

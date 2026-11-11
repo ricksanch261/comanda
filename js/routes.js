@@ -19,9 +19,20 @@ import tableView, { tableExtensions } from './views/sala/table.js';
 import billView from './views/sala/bill.js';
 import { billBarButton, seatSubtotal, reopenItem } from './views/sala/billHooks.js';
 
-tableExtensions.barButtons.push(billBarButton);
+import * as adv from './views/sala/advanced.js';
+import { summaryExtensions } from './views/sala/sendSummary.js';
+
+tableExtensions.barButtons.push(adv.marchBarButton, billBarButton);
+tableExtensions.sentLineTap = adv.sentLineTap;
+tableExtensions.groupInfo = adv.groupInfo;
+tableExtensions.groupActions = adv.groupActions;
+tableExtensions.moreItems.push(adv.moveTableItem, adv.mergeTableItem, adv.closeItem);
+summaryExtensions.holdOptions = adv.holdOptions;
 tableExtensions.seatSubtotal = seatSubtotal;
 tableExtensions.moreItems.push(reopenItem);
+import floorPlanView from './views/admin/floorPlan.js';
+import { tablesBarExtensions } from './views/admin/tables.js';
+import { h as hh, icon as ic } from './utils/dom.js';
 import { modifierGroupsView, modifierGroupDetailView } from './views/admin/modifierGroups.js';
 
 export const routes = [
@@ -41,9 +52,12 @@ export const routes = [
   { path: '/admin/menu', view: menuView, admin: true },
   { path: '/admin/menu/categorie', view: categoriesView, admin: true },
   { path: '/admin/menu/piatto/:id', view: menuItemView, admin: true },
+  { path: '/admin/piantina/:areaId?', view: floorPlanView, admin: true },
   { path: '/admin/varianti', view: modifierGroupsView, admin: true },
   { path: '/admin/varianti/:id', view: modifierGroupDetailView, admin: true },
 ];
+
+tablesBarExtensions.push((areaId) => hh('a', { class: 'btn btn--sm', href: `#/admin/piantina/${areaId}` }, ic('map', 'icon--sm'), 'Piantina'));
 
 export function notFoundView() {
   return {
