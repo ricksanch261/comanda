@@ -17,6 +17,7 @@ import { registerServiceWorker } from './sw-register.js';
 const root = document.getElementById('app');
 let current = null; // { view, match }
 let rerenderQueued = false;
+let tickTimer = null;
 
 function isSetupDone(data) {
   return Boolean(data.settings.restaurantName && data.settings.adminPinHash);
@@ -78,9 +79,11 @@ function onRoute(match) {
   }
 
   if (current?.view.destroy) current.view.destroy();
+  clearInterval(tickTimer);
   const factory = match.route ? match.route.view : notFoundView;
   const view = factory({ params: match.params, query: match.query, path });
   current = { view, match };
+  if (view.tick) tickTimer = setInterval(queueRerender, view.tick);
   document.title = view.title ? `${view.title} · Gestione Tavoli` : 'Gestione Tavoli';
   render({ resetScroll: true });
 }

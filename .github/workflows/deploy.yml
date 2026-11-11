@@ -34,9 +34,9 @@ jobs:
       - name: Prepara il sito statico
         run: |
           mkdir -p _site
-          cp -r index.html manifest.webmanifest service-worker.js assets css js _site/ 2>/dev/null || true
+          cp -r index.html manifest.webmanifest service-worker.js assets css js _site/
           touch _site/.nojekyll
-          ls -R _site | head -50
+          find _site -type f | sort
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

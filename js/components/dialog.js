@@ -133,3 +133,44 @@ export async function confirmDialog({
   });
   return r === true;
 }
+
+/** Chiede un testo. Restituisce la stringa o null. `validate(v)` → messaggio d'errore o null. */
+export async function promptText({ title, label, value = '', confirmLabel = 'Salva', placeholder = '', validate = null, inputmode = null }) {
+  let current = value;
+  const err = h('div', { class: 'field__error', role: 'alert' });
+  const inputId = `prompt-${Math.random().toString(36).slice(2)}`;
+  const input = h('input', {
+    class: 'input',
+    id: inputId,
+    value,
+    placeholder,
+    inputmode,
+    autofocus: true,
+    onInput: (e) => (current = e.target.value),
+  });
+  const submit = () => {
+    const msg = validate ? validate(current.trim()) : current.trim() ? null : 'Campo obbligatorio.';
+    if (msg) {
+      err.textContent = msg;
+      input.setAttribute('aria-invalid', 'true');
+      return false;
+    }
+    return current.trim();
+  };
+  return openDialog({
+    title,
+    body: (api) => {
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          const r = submit();
+          if (r !== false) api.close(r);
+        }
+      });
+      return h('div', { class: 'field' }, h('label', { class: 'field__label', for: inputId }, label), input, err);
+    },
+    actions: [
+      { label: 'Annulla', value: null, variant: 'ghost' },
+      { label: confirmLabel, variant: 'primary', onClick: submit },
+    ],
+  });
+}

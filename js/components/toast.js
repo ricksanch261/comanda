@@ -41,8 +41,8 @@ export function toast(message, { icon: iconName = 'check', action = null, durati
     el.classList.add('is-leaving');
     setTimeout(() => el.remove(), 250);
   }
-  // Al massimo 3 toast visibili.
-  while (container.children.length >= 3) container.firstElementChild.remove();
+  // Al massimo 2 toast visibili.
+  while (container.children.length >= 2) container.firstElementChild.remove();
   container.append(el);
   timer = setTimeout(dismiss, duration);
   return { dismiss };

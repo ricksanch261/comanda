@@ -63,11 +63,11 @@ export function createSeats(count, startPosition = 0) {
   }));
 }
 
-/** Dimensioni di default (in % della piantina) per forma. */
+/** Dimensioni di default (in % della piantina quadrata) per forma. */
 export function defaultSize(shape, seatCount = 4) {
-  if (shape === 'rect') return { w: Math.min(40, 14 + seatCount * 3), h: 12 };
-  if (shape === 'square') return { w: 12, h: 12 };
-  return { w: 11, h: 11 };
+  if (shape === 'rect') return { w: Math.min(60, 20 + Math.ceil(seatCount / 2) * 7.5), h: 20 };
+  if (shape === 'square') return { w: 20, h: 20 };
+  return { w: 18, h: 18 };
 }
 
 export function createTable({ label, areaId, shape = 'square', seats = 4, layout } = {}) {
