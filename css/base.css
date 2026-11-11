@@ -181,3 +181,4 @@ svg {
     scroll-behavior: auto !important;
   }
 }
+[tabindex='-1']:focus { outline: none; }

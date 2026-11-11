@@ -13,12 +13,19 @@ import tableDetailView from './views/admin/tableDetail.js';
 import menuView from './views/admin/menu.js';
 import categoriesView from './views/admin/categories.js';
 import menuItemView from './views/admin/menuItem.js';
+import mapView from './views/sala/map.js';
+import whoAmIView from './views/sala/whoAmI.js';
+import tableView from './views/sala/table.js';
 import { modifierGroupsView, modifierGroupDetailView } from './views/admin/modifierGroups.js';
 
 export const routes = [
   { path: '/', view: homeView },
   { path: '/setup', view: setupView },
   { path: '/pin', view: pinView },
+  { path: '/sala', view: mapView },
+  { path: '/sala/chi-sei', view: whoAmIView },
+  { path: '/sala/tavolo/:id', view: tableView },
+  { path: '/sala/tavolo/:id/aggiungi', view: tableView },
   { path: '/admin', view: dashboardView, admin: true },
   { path: '/admin/impostazioni', view: settingsView, admin: true },
   { path: '/admin/aree', view: areasView, admin: true },
