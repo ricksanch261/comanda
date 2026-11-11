@@ -3,9 +3,32 @@
  */
 import { h } from './utils/dom.js';
 import homeView from './views/home.js';
+import setupView from './views/setup.js';
+import pinView from './views/pin.js';
+import dashboardView from './views/admin/dashboard.js';
+import settingsView from './views/admin/settings.js';
+import areasView from './views/admin/areas.js';
+import tablesView from './views/admin/tables.js';
+import tableDetailView from './views/admin/tableDetail.js';
+import menuView from './views/admin/menu.js';
+import categoriesView from './views/admin/categories.js';
+import menuItemView from './views/admin/menuItem.js';
+import { modifierGroupsView, modifierGroupDetailView } from './views/admin/modifierGroups.js';
 
 export const routes = [
   { path: '/', view: homeView },
+  { path: '/setup', view: setupView },
+  { path: '/pin', view: pinView },
+  { path: '/admin', view: dashboardView, admin: true },
+  { path: '/admin/impostazioni', view: settingsView, admin: true },
+  { path: '/admin/aree', view: areasView, admin: true },
+  { path: '/admin/tavoli', view: tablesView, admin: true },
+  { path: '/admin/tavoli/:id', view: tableDetailView, admin: true },
+  { path: '/admin/menu', view: menuView, admin: true },
+  { path: '/admin/menu/categorie', view: categoriesView, admin: true },
+  { path: '/admin/menu/piatto/:id', view: menuItemView, admin: true },
+  { path: '/admin/varianti', view: modifierGroupsView, admin: true },
+  { path: '/admin/varianti/:id', view: modifierGroupDetailView, admin: true },
 ];
 
 export function notFoundView() {
