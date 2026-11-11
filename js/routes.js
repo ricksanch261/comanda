@@ -65,7 +65,7 @@ export const routes = [
 dashboardExtensions.banners.push(gettingStartedBanner, backupBanner);
 tablesBarExtensions.push((areaId) => hh('a', { class: 'btn btn--sm', href: `#/admin/piantina/${areaId}` }, ic('map', 'icon--sm'), 'Piantina'));
 
-export function notFoundView() {
+export function notFoundView({ path } = {}) {
   return {
     title: 'Pagina non trovata',
     render: () =>
@@ -73,6 +73,23 @@ export function notFoundView() {
         h('div', { class: 'screen__body screen__body--narrow' },
           h('div', { class: 'empty' },
             h('h1', { class: 'empty__title' }, 'Pagina non trovata'),
-            h('a', { class: 'btn btn--primary', href: '#/' }, 'Torna all’inizio')))),
+            h('p', { class: 'empty__text' }, path ? `L’indirizzo “${path}” non esiste in questa versione dell’app.` : ''),
+            h('p', { class: 'empty__text' }, 'Se l’app è stata appena aggiornata, ricaricala per scaricare la versione nuova.'),
+            h('div', { class: 'row row--wrap', style: { justifyContent: 'center' } },
+              h('button', { type: 'button', class: 'btn', onClick: () => hardReload() }, 'Ricarica l’app'),
+              h('a', { class: 'btn btn--primary', href: '#/' }, 'Torna all’inizio'))))),
   };
+}
+
+/** Ricarica scartando le cache dell'app (service worker e Cache Storage). */
+async function hardReload() {
+  try {
+    const regs = (await navigator.serviceWorker?.getRegistrations()) || [];
+    await Promise.all(regs.map((r) => r.update().catch(() => {})));
+    const keys = (await globalThis.caches?.keys()) || [];
+    await Promise.all(keys.filter((k) => k.startsWith('gestione-tavoli-') && k !== 'gestione-tavoli-fonts').map((k) => caches.delete(k)));
+  } catch {
+    /* ricarica comunque */
+  }
+  location.reload();
 }
