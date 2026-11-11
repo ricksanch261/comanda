@@ -729,7 +729,19 @@ export function closeSession(d, { sessionId, force = false, now }) {
   return s.id;
 }
 
+/* ---------------------------------- Dati ---------------------------------- */
+
+/** Rimuove le sessioni chiuse prima di `before`. Restituisce le sessioni rimosse. */
+export function archiveSessions(d, { before }) {
+  const limit = new Date(before).getTime();
+  const old = d.sessions.filter((s) => s.status === 'closed' && s.closedAt && new Date(s.closedAt).getTime() < limit);
+  const ids = new Set(old.map((s) => s.id));
+  d.sessions = d.sessions.filter((s) => !ids.has(s.id));
+  return old;
+}
+
 export const actions = {
+  archiveSessions,
   holdCourse,
   releaseCourse,
   marchCourse,
