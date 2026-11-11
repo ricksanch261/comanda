@@ -65,12 +65,12 @@ export function seatGeometry(shape, n, maxW, base = 56) {
   }
   if (shape === 'square') {
     const perSide = Math.ceil(n / 4);
-    const needed = Math.max(100 + 2 * m, perSide * (d + 10) + 2 * m + 10);
+    const needed = Math.max(100 + 2 * m, (perSide + 1) * (d + 8) + 2 * m);
     const side = Math.max(needed, Math.min(maxW, 100 + 2 * m + 60));
     return { d, W: side, H: side };
   }
   const perLong = n >= 6 ? Math.ceil((n - 2) / 2) : Math.ceil(n / 2);
-  const needed = perLong * (d + 10) + 2 * m + 20;
+  const needed = Math.max(140 + 2 * m, (perLong + 1) * (d + 8) + 2 * m);
   const W = Math.max(needed, Math.min(maxW, 560));
   return { d, W, H: Math.round(2 * m + Math.max(84, d * 1.5)) };
 }

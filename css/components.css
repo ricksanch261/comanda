@@ -1216,3 +1216,32 @@ button.oline:hover { border-color: var(--color-text-muted); }
 body:has(.bottom-bar) .toasts { bottom: calc(100px + env(safe-area-inset-bottom)); }
 body:has(.bill-footer) .toasts { bottom: calc(200px + env(safe-area-inset-bottom)); }
 body:has(.sticky-actions) .toasts { bottom: calc(96px + env(safe-area-inset-bottom)); }
+
+/* Editor piantina */
+.ed-toolbar { display: flex; align-items: center; gap: var(--space-2); padding: 0 var(--space-4) var(--space-3); flex-wrap: wrap; }
+.ed-layout { display: grid; gap: var(--space-4); padding: 0 var(--space-4) var(--space-8); grid-template-columns: 1fr; }
+.ed-palette__list { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-2); }
+.ed-canvas { min-width: 0; }
+.plan--editor { touch-action: none; user-select: none; -webkit-user-select: none; }
+.plan--snap { background-size: 2.5% 2.5%; }
+.plan--editor .ed-table { cursor: grab; touch-action: none; }
+.plan--editor .ed-table:active { cursor: grabbing; }
+.ed-table.is-selected { outline: 3px solid var(--color-info); outline-offset: 2px; z-index: 2; }
+.ed-handle { position: absolute; width: 28px; height: 28px; border-radius: 50%; background: var(--color-info); color: #fff; border: 2px solid var(--color-surface); display: grid; place-items: center; touch-action: none; }
+.ed-handle--resize { right: -14px; bottom: -14px; cursor: nwse-resize; }
+.ed-handle--rotate { left: 50%; top: -40px; margin-left: -14px; cursor: grab; }
+.ed-handle .icon { font-size: 16px; }
+.rot-grid { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; }
+@media (min-width: 1024px) {
+  .ed-layout { grid-template-columns: 160px minmax(0, 1fr) 300px; align-items: start; }
+  .ed-palette__list { grid-template-columns: 1fr; }
+  .ed-canvas .plan { max-width: min(100%, calc(100dvh - 180px)); margin: 0 auto; }
+}
+.bottom-bar__main { white-space: nowrap; padding: 0 var(--space-3); }
+@media (max-width: 420px) {
+  .bottom-bar { gap: 6px; padding-left: 8px; padding-right: 8px; }
+  .bottom-bar__main { font-size: 15px; gap: 6px; }
+  .bottom-bar__main > .icon { display: none; }
+  .bottom-bar__tool { width: 58px; }
+  .bottom-bar__more { width: 40px; }
+}
