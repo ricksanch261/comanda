@@ -21,6 +21,9 @@ import {
 import { normalizeAllergens } from '../domain/allergens.js';
 import { findTableByLabel, buildBulkTables, findFreeSpot } from '../domain/tables.js';
 import { newId } from '../domain/ids.js';
+import { createSession, createSeatState, createOrderLine } from '../domain/models.js';
+import { findAllergenConflicts, normalizeAllergens as normAlg } from '../domain/allergens.js';
+import { sendableLines } from '../domain/session.js';
 
 const byId = (list, id, what = 'Elemento') => {
   const found = list.find((x) => x.id === id);
@@ -322,7 +325,243 @@ export function removeModifierGroup(d, { id }) {
 }
 
 
+/* ------------------------------ Sala: servizio ---------------------------- */
+
+const nowIso = (now) => (now ? new Date(now) : new Date()).toISOString();
+
+function getSession(d, sessionId) {
+  const s = byId(d.sessions, sessionId, 'Servizio');
+  if (s.status === 'closed') throw new DomainError('Il tavolo è già stato chiuso.');
+  return s;
+}
+
+function nextExtraLabel(session) {
+  const used = new Set(session.seatsState.filter((s) => s.isExtra).map((s) => s.extraLabel));
+  let n = 1;
+  while (used.has(`Extra ${n}`)) n++;
+  return `Extra ${n}`;
+}
+
+/** Apre un tavolo libero. Se i coperti superano i posti crea posti extra. */
+export function openTable(d, { tableId, covers, waiterId = null, now }) {
+  const table = byId(d.tables, tableId, 'Tavolo');
+  if (!table.active) throw new DomainError('Il tavolo è disattivato.');
+  if (openSessionForTable(d, tableId)) throw new DomainError(`Il tavolo ${table.label} è già aperto.`);
+  const n = Math.floor(covers);
+  if (!(n >= 1 && n <= 40)) throw new DomainError('I coperti devono essere tra 1 e 40.');
+  const seats = [...table.seats].sort((a, b) => a.position - b.position);
+  const seatsState = seats.slice(0, n).map((s) => createSeatState({ seatId: s.id }));
+  const session = createSession({ tableId, covers: n, waiterId, seatsState, now: now ? new Date(now) : new Date() });
+  for (let i = seats.length; i < n; i++) {
+    session.seatsState.push(createSeatState({ isExtra: true, extraLabel: nextExtraLabel(session) }));
+  }
+  d.sessions.push(session);
+  return session.id;
+}
+
+/** Annulla l'apertura di un tavolo senza righe inviate (il tavolo torna libero). */
+export function cancelSession(d, { sessionId }) {
+  const s = getSession(d, sessionId);
+  if (s.orderLines.some((l) => l.status !== 'draft')) throw new DomainError('Ci sono comande inviate: usa “Chiudi tavolo” dal conto.');
+  if (s.payments.length) throw new DomainError('Ci sono pagamenti registrati.');
+  d.sessions = d.sessions.filter((x) => x.id !== sessionId);
+}
+
+export function setWaiter(d, { sessionId, waiterId }) {
+  getSession(d, sessionId).waiterId = waiterId || null;
+}
+
+/** Aggiunge un posto: prima un posto configurato libero, altrimenti un extra. */
+export function addSeat(d, { sessionId }) {
+  const s = getSession(d, sessionId);
+  const table = byId(d.tables, s.tableId, 'Tavolo');
+  const used = new Set(s.seatsState.map((x) => x.seatId));
+  const free = [...table.seats].sort((a, b) => a.position - b.position).find((x) => !used.has(x.id));
+  let state;
+  if (free) {
+    state = createSeatState({ seatId: free.id });
+    const pos = new Map(table.seats.map((x) => [x.id, x.position]));
+    const regular = [...s.seatsState.filter((x) => !x.isExtra), state].sort((a, b) => pos.get(a.seatId) - pos.get(b.seatId));
+    s.seatsState = [...regular, ...s.seatsState.filter((x) => x.isExtra)];
+  } else {
+    state = createSeatState({ isExtra: true, extraLabel: nextExtraLabel(s) });
+    s.seatsState.push(state);
+  }
+  s.covers = Math.max(s.covers, s.seatsState.length);
+  return state.seatId;
+}
+
+/** Nome ospite e allergie di un posto. */
+export function updateSeat(d, { sessionId, seatId, guestName, allergens }) {
+  const s = getSession(d, sessionId);
+  const seat = s.seatsState.find((x) => x.seatId === seatId);
+  if (!seat) throw new DomainError('Posto non trovato.');
+  if (guestName !== undefined) seat.guestName = trimmed(guestName) || null;
+  if (allergens !== undefined) seat.allergens = normAlg(allergens);
+}
+
+function validateAssignment(session, assignment) {
+  const ids = new Set(session.seatsState.map((x) => x.seatId));
+  if (!assignment || !['seat', 'shared', 'table'].includes(assignment.type)) throw new DomainError('Destinatario non valido.');
+  if (assignment.type === 'table') return { type: 'table' };
+  const seatIds = [...new Set(assignment.seatIds || [])].filter((id) => ids.has(id));
+  if (assignment.type === 'seat') {
+    if (seatIds.length !== 1) throw new DomainError('Seleziona un posto.');
+    return { type: 'seat', seatIds };
+  }
+  if (seatIds.length < 2) throw new DomainError('Per un piatto condiviso servono almeno 2 posti.');
+  // Ordine dei posti come nella sessione.
+  const order = session.seatsState.map((x) => x.seatId);
+  seatIds.sort((a, b) => order.indexOf(a) - order.indexOf(b));
+  return { type: 'shared', seatIds };
+}
+
+function resolveModifiers(d, item, chosen) {
+  const out = [];
+  for (const gid of item.modifierGroupIds) {
+    const group = d.modifierGroups.find((g) => g.id === gid);
+    if (!group) continue;
+    const picked = (chosen || []).filter((c) => c.groupId === gid);
+    if (group.required && !picked.length) throw new DomainError(`Scegli: ${group.name}.`);
+    if (!group.multiple && picked.length > 1) throw new DomainError(`${group.name}: una sola scelta.`);
+    for (const p of picked) {
+      const opt = group.options.find((o) => o.id === p.optionId);
+      if (!opt) throw new DomainError(`Opzione non valida per ${group.name}.`);
+      out.push({ groupId: gid, optionId: opt.id, name: opt.name, priceDeltaCents: opt.priceDeltaCents });
+    }
+  }
+  return out;
+}
+
+/**
+ * Aggiunge una riga in bozza.
+ * Se un allergene del piatto coincide con le allergie di un posto destinatario
+ * serve allergenOverride = true (conferma esplicita del cameriere).
+ */
+export function addOrderLine(d, { sessionId, menuItemId, assignment, quantity = 1, modifiers = [], note = '', courseIndex, allergenOverride = false, now }) {
+  const s = getSession(d, sessionId);
+  const item = byId(d.menuItems, menuItemId, 'Piatto');
+  if (!item.available) throw new DomainError(`${item.name} è esaurito.`);
+  const asg = validateAssignment(s, assignment);
+  const conflicts = findAllergenConflicts(item.allergens, s, asg);
+  if (conflicts.length && !allergenOverride) throw new DomainError('Allergene in conflitto: serve una conferma.', 'allergen');
+  const q = Math.floor(quantity);
+  if (!(q >= 1 && q <= 99)) throw new DomainError('Quantità non valida.');
+  const mods = resolveModifiers(d, item, modifiers);
+  const cat = d.categories.find((c) => c.id === item.categoryId);
+  const course = courseIndex === undefined ? cat?.courseIndex ?? null : checkCourse(d, courseIndex);
+  const line = createOrderLine({
+    menuItemId: item.id,
+    nameSnapshot: item.name,
+    unitPriceCents: item.priceCents + mods.reduce((t, m) => t + m.priceDeltaCents, 0),
+    quantity: q,
+    modifiers: mods,
+    note: trimmed(note),
+    assignment: asg,
+    courseIndex: course,
+    allergenOverride: Boolean(conflicts.length && allergenOverride),
+    createdAt: nowIso(now),
+  });
+  s.orderLines.push(line);
+  return line.id;
+}
+
+function getDraft(s, lineId) {
+  const line = byId(s.orderLines, lineId, 'Riga');
+  if (line.status !== 'draft') throw new DomainError('Le righe inviate non si modificano: usa lo storno.');
+  return line;
+}
+
+/** Modifica una riga in bozza (quantità, varianti, nota, portata, destinatari). */
+export function updateOrderLine(d, { sessionId, lineId, quantity, modifiers, note, courseIndex, assignment, allergenOverride }) {
+  const s = getSession(d, sessionId);
+  const line = getDraft(s, lineId);
+  const item = d.menuItems.find((m) => m.id === line.menuItemId);
+  if (assignment !== undefined) {
+    const asg = validateAssignment(s, assignment);
+    const conflicts = item ? findAllergenConflicts(item.allergens, s, asg) : [];
+    if (conflicts.length && !allergenOverride && !line.allergenOverride) throw new DomainError('Allergene in conflitto: serve una conferma.', 'allergen');
+    line.assignment = asg;
+    line.allergenOverride = conflicts.length > 0;
+  }
+  if (quantity !== undefined) {
+    const q = Math.floor(quantity);
+    if (!(q >= 1 && q <= 99)) throw new DomainError('Quantità non valida.');
+    line.quantity = q;
+  }
+  if (modifiers !== undefined && item) {
+    line.modifiers = resolveModifiers(d, item, modifiers);
+    line.unitPriceCents = item.priceCents + line.modifiers.reduce((t, m) => t + m.priceDeltaCents, 0);
+  }
+  if (note !== undefined) line.note = trimmed(note);
+  if (courseIndex !== undefined) line.courseIndex = checkCourse(d, courseIndex);
+}
+
+/** Elimina una riga in bozza. Restituisce { line, index } per l'annulla. */
+export function removeOrderLine(d, { sessionId, lineId }) {
+  const s = getSession(d, sessionId);
+  const line = getDraft(s, lineId);
+  const index = s.orderLines.indexOf(line);
+  s.orderLines.splice(index, 1);
+  return { line, index };
+}
+
+/** Ripristina una riga eliminata (annulla). */
+export function restoreOrderLine(d, { sessionId, line, index }) {
+  const s = getSession(d, sessionId);
+  if (s.orderLines.some((l) => l.id === line.id)) return;
+  s.orderLines.splice(Math.min(index ?? s.orderLines.length, s.orderLines.length), 0, line);
+}
+
+/** Duplica una riga ("Ripeti") su un altro destinatario, in bozza. */
+export function repeatOrderLine(d, { sessionId, lineId, assignment, allergenOverride = false, now }) {
+  const s = getSession(d, sessionId);
+  const src = byId(s.orderLines, lineId, 'Riga');
+  const item = d.menuItems.find((m) => m.id === src.menuItemId);
+  if (!item) throw new DomainError('Il piatto non è più nel menu.');
+  return addOrderLine(d, {
+    sessionId,
+    menuItemId: item.id,
+    assignment,
+    quantity: src.quantity,
+    modifiers: src.modifiers.map((m) => ({ groupId: m.groupId, optionId: m.optionId })),
+    note: src.note,
+    courseIndex: src.courseIndex,
+    allergenOverride,
+    now,
+  });
+}
+
+/**
+ * Invia la comanda: le righe draft passano a sent, escluse quelle delle
+ * portate trattenute. `hold` (facoltativo) aggiunge portate da trattenere.
+ * Restituisce gli id delle righe inviate.
+ */
+export function sendOrder(d, { sessionId, hold = [], now }) {
+  const s = getSession(d, sessionId);
+  for (const c of hold) if (!s.heldCourses.includes(c)) s.heldCourses.push(c);
+  const lines = sendableLines(s);
+  if (!lines.length) throw new DomainError('Nessuna riga da inviare.');
+  const at = nowIso(now);
+  for (const l of lines) {
+    l.status = 'sent';
+    l.sentAt = at;
+  }
+  return lines.map((l) => l.id);
+}
+
 export const actions = {
+  openTable,
+  cancelSession,
+  setWaiter,
+  addSeat,
+  updateSeat,
+  addOrderLine,
+  updateOrderLine,
+  removeOrderLine,
+  restoreOrderLine,
+  repeatOrderLine,
+  sendOrder,
   completeSetup,
   updateSettings,
   setAdminPin,

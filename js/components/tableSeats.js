@@ -47,22 +47,32 @@ export function computeSeatLayout({ shape, n, W, H, d, gap = 8 }) {
   return { tb, pos };
 }
 
-/** Dimensioni consigliate del componente per forma e numero di posti. */
-export function suggestedSize(shape, n, maxW, d) {
-  const W = Math.max(200, maxW);
+/**
+ * Geometria del componente per forma e numero di posti.
+ * Restituisce la dimensione dei posti (d) e del componente (W×H); se i posti
+ * non stanno in maxW la larghezza naturale supera maxW (il contenitore scorre).
+ */
+export function seatGeometry(shape, n, maxW, base = 56) {
+  let d = n <= 8 ? base : n <= 12 ? base - 8 : base - 14;
+  d = Math.max(44, d);
+  const m = d + 8;
   if (shape === 'round') {
-    const minD = Math.max(100, (n * (d + 6)) / Math.PI - d);
-    const side = Math.min(W, Math.max(220, minD + 2 * (d + 8)));
-    return { W: side, H: side };
+    // Circonferenza dei centri dei posti ≥ n·(d+6)
+    const R = Math.max((n * (d + 6)) / (2 * Math.PI), 50 + 8 + d / 2);
+    const needed = Math.ceil(2 * R + d + 4);
+    const side = Math.max(needed, Math.min(maxW, 100 + 2 * m + 40));
+    return { d, W: side, H: side };
   }
   if (shape === 'square') {
     const perSide = Math.ceil(n / 4);
-    const side = Math.min(W, Math.max(220, perSide * (d + 10) + 2 * (d + 8) + 20));
-    return { W: side, H: side };
+    const needed = Math.max(100 + 2 * m, perSide * (d + 10) + 2 * m + 10);
+    const side = Math.max(needed, Math.min(maxW, 100 + 2 * m + 60));
+    return { d, W: side, H: side };
   }
   const perLong = n >= 6 ? Math.ceil((n - 2) / 2) : Math.ceil(n / 2);
-  const w = Math.min(W, Math.max(280, perLong * (d + 10) + 2 * (d + 8) + 20));
-  return { W: w, H: Math.round(2 * (d + 8) + Math.max(70, d * 1.4)) };
+  const needed = perLong * (d + 10) + 2 * m + 20;
+  const W = Math.max(needed, Math.min(maxW, 560));
+  return { d, W, H: Math.round(2 * m + Math.max(84, d * 1.5)) };
 }
 
 /**
@@ -150,7 +160,7 @@ export function tableSeats({
 }
 
 /** Anteprima non interattiva (admin). */
-export function tableSeatsPreview({ shape, seats, maxWidth = 340, seatSize = 44 }) {
-  const { W, H } = suggestedSize(shape, seats.length, maxWidth, seatSize);
-  return tableSeats({ shape, seats, width: W, height: H, seatSize, interactive: false });
+export function tableSeatsPreview({ shape, seats, maxWidth = 340, seatSize = 48 }) {
+  const { d, W, H } = seatGeometry(shape, seats.length, maxWidth, seatSize);
+  return tableSeats({ shape, seats, width: W, height: H, seatSize: d, interactive: false });
 }
