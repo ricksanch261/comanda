@@ -1257,3 +1257,37 @@ body:has(.sticky-actions) .toasts { bottom: calc(96px + env(safe-area-inset-bott
 .rank__bar { height: 6px; border-radius: 3px; background: var(--color-surface-2); overflow: hidden; }
 .rank__bar > span { display: block; height: 100%; background: var(--color-primary); border-radius: 3px; }
 @media (min-width: 600px) { .kpi-grid { grid-template-columns: 2fr 1fr 1fr; } .kpi--main { grid-column: auto; } }
+
+/* ------------------- Robustezza: testo grande / schermi stretti ------------------- */
+.app-bar { flex-wrap: wrap; row-gap: 0; }
+.app-bar__title { flex: 1 1 9rem; }
+.app-bar__title h1 { overflow-wrap: break-word; word-break: normal; }
+.app-bar__actions { flex-wrap: wrap; justify-content: flex-end; margin-left: auto; }
+
+/* Le barre inferiori sono "sticky": occupano spazio nel flusso e non coprono il contenuto. */
+.tv-screen, .bill-screen { padding-bottom: 0; }
+.tv { flex: 1; }
+.bottom-bar, .bill-footer { position: sticky; }
+.bottom-bar { flex-wrap: wrap; }
+.bottom-bar__main { flex: 1 1 150px; }
+.bill-totals { grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); }
+.bill-footer .row { flex-wrap: wrap; }
+.bill-footer .row > .btn { flex: 1 1 140px; }
+.map-toolbar > * { min-width: 0; }
+.segmented { flex-wrap: wrap; max-width: 100%; }
+.segmented--block { display: flex; flex-wrap: wrap; }
+.segmented--block > button { flex: 1 1 auto; }
+.banner { flex-wrap: wrap; }
+.banner__body { flex: 1 1 12rem; }
+@media (max-height: 520px) {
+  .bottom-bar, .bill-footer { position: static; }
+}
+/* Tema scuro: testo scuro su rosso allergeni per il contrasto AA (4.5:1). */
+html[data-theme='dark'] .banner--block,
+html[data-theme='dark'] .dialog--alert .dialog__head,
+html[data-theme='dark'] .allergen-tag.is-hit,
+html[data-theme='dark'] .allergen-option[aria-pressed='true'] .allergen-tag { color: #1D1A16; }
+.oline { touch-action: pan-y; }
+.oline.is-swiping { transition: none; box-shadow: var(--shadow-md); }
+.oline.is-swipe-armed { border-color: var(--color-danger); background: color-mix(in oklab, var(--color-danger) 10%, var(--color-surface)); }
+.order-group { overflow-x: clip; }

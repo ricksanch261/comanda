@@ -1,5 +1,5 @@
 /* Gestione Tavoli — service worker: precache degli asset e strategia cache-first. */
-const CACHE_VERSION = 'v1.0.0';
+const CACHE_VERSION = 'v1.0.1';
 const CACHE = `gestione-tavoli-${CACHE_VERSION}`;
 const FONT_CACHE = 'gestione-tavoli-fonts';
 
@@ -28,6 +28,7 @@ const ASSETS = [
   'js/components/notFound.js',
   'js/components/pinPad.js',
   'js/components/sortable.js',
+  'js/components/swipe.js',
   'js/components/stepper.js',
   'js/components/tableSeats.js',
   'js/components/toast.js',

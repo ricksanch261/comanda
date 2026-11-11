@@ -19,6 +19,7 @@ import { lineConfig } from './lineConfig.js';
 import { allergenAlert } from './allergenAlert.js';
 import { seatSheet } from './seatSheet.js';
 import { sendSummary, lineDetail } from './sendSummary.js';
+import { enableSwipeLeft } from '../../components/swipe.js';
 
 /** Punti di estensione delle milestone successive. */
 export const tableExtensions = {
@@ -52,7 +53,16 @@ export default function tableView({ params, query, path }) {
 
   function goAdd(asg) {
     search = '';
+    if (!adding) ui.pickerPushed = true;
     app.navigate(`${base}/aggiungi?per=${encodeURIComponent(encodeTarget(asg))}`, { replace: adding });
+  }
+
+  /** Esce dal selettore piatti senza lasciare voci duplicate nella cronologia. */
+  function leavePicker() {
+    if (ui.pickerPushed) {
+      ui.pickerPushed = false;
+      history.back();
+    } else app.navigate(base, { replace: true });
   }
 
   function onSeat(seats, i) {
@@ -87,7 +97,7 @@ export default function tableView({ params, query, path }) {
     toast(`Aggiunto: ${item.name} · ${td.short}`, {
       action: { label: 'Annulla', onClick: () => app.act('removeOrderLine', { sessionId: session.id, lineId }) },
     });
-    if (isPhone()) app.navigate(base, { replace: true });
+    if (isPhone()) leavePicker();
     return true;
   }
 
@@ -321,7 +331,7 @@ export default function tableView({ params, query, path }) {
       l.status === 'voided' && l.voidReason ? `Storno: ${l.voidReason}` : null,
     ].filter(Boolean).join(' · ');
     const tappable = l.status === 'draft' || (l.status !== 'voided' && tableExtensions.sentLineTap);
-    return h(tappable ? 'button' : 'div', {
+    const el = h(tappable ? 'button' : 'div', {
       type: tappable ? 'button' : null,
       class: ['oline', `oline--${l.status}`, l.allergenOverride && 'has-alg'],
       'aria-label': `${l.quantity} ${l.nameSnapshot}, ${label}, ${st.label}, ${formatCents(l.unitPriceCents * l.quantity)} euro${l.allergenOverride ? ', allergia segnalata' : ''}`,
@@ -334,6 +344,14 @@ export default function tableView({ params, query, path }) {
     h('span', { class: 'oline__end' },
       h('span', { class: 'oline__price num' }, formatCents(l.unitPriceCents * l.quantity)),
       h('span', { class: ['oline__status', st.cls] }, icon(st.icon), st.label)));
+    if (l.status === 'draft') {
+      el.setAttribute('aria-description', 'Bozza: tocca per modificare, scorri a sinistra per eliminare');
+      enableSwipeLeft(el, () => {
+        const r = app.act('removeOrderLine', { sessionId: session.id, lineId: l.id });
+        if (r.ok) toast(`Riga eliminata: ${l.nameSnapshot}`, { icon: 'delete', action: { label: 'Annulla', onClick: () => app.act('restoreOrderLine', { sessionId: session.id, ...r.result }) } });
+      });
+    }
+    return el;
   }
 
   function bottomBar(table, session) {
@@ -377,13 +395,17 @@ export default function tableView({ params, query, path }) {
             onSearch: (v) => { search = v; app.rerender(); },
             onQuickAdd: (m) => quickAdd(m, asg),
             onConfigure: (m) => configure(m, asg),
-            onChangeTarget: isPhone() ? () => app.navigate(base, { replace: true }) : null,
+            onChangeTarget: isPhone() ? leavePicker : null,
           })
         : null;
 
       if (asg && isPhone()) {
         return h('div', { class: 'screen' },
-          appBar({ back: base, backIcon: 'close', backLabel: 'Chiudi', title: 'Aggiungi piatto', sub: `${table.label} · portata automatica dalla categoria` }),
+          appBar({
+            title: 'Aggiungi piatto',
+            sub: `${table.label} · portata automatica dalla categoria`,
+            actions: [h('button', { type: 'button', class: 'icon-btn', 'aria-label': 'Chiudi', onClick: leavePicker }, icon('close'))],
+          }),
           h('main', { class: 'screen__body' }, picker));
       }
 
@@ -394,7 +416,7 @@ export default function tableView({ params, query, path }) {
           asg
             ? h('section', { class: 'tv__panel', 'aria-label': 'Aggiungi piatto' },
                 h('div', { class: 'tv__panel-head' },
-                  h('a', { class: 'icon-btn', href: `#${base}`, 'aria-label': 'Chiudi selezione piatto' }, icon('arrow_back')),
+                  h('button', { type: 'button', class: 'icon-btn', 'aria-label': 'Chiudi selezione piatto', onClick: leavePicker }, icon('arrow_back')),
                   h('div', {}, h('div', { class: 'bold' }, `Aggiungi piatto · ${table.label}`), h('div', { class: 'text-sm muted' }, 'tocca un altro posto per cambiare'))),
                 picker)
             : orderPanel(table, session)),

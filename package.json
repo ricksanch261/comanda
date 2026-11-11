@@ -1,6 +1,6 @@
 {
   "name": "gestione-tavoli",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Gestione Tavoli — web app PWA per la gestione dei tavoli di un ristorante (HTML/CSS/JS vanilla).",
   "private": true,
   "type": "module",
