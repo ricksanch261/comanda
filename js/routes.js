@@ -15,7 +15,13 @@ import categoriesView from './views/admin/categories.js';
 import menuItemView from './views/admin/menuItem.js';
 import mapView from './views/sala/map.js';
 import whoAmIView from './views/sala/whoAmI.js';
-import tableView from './views/sala/table.js';
+import tableView, { tableExtensions } from './views/sala/table.js';
+import billView from './views/sala/bill.js';
+import { billBarButton, seatSubtotal, reopenItem } from './views/sala/billHooks.js';
+
+tableExtensions.barButtons.push(billBarButton);
+tableExtensions.seatSubtotal = seatSubtotal;
+tableExtensions.moreItems.push(reopenItem);
 import { modifierGroupsView, modifierGroupDetailView } from './views/admin/modifierGroups.js';
 
 export const routes = [
@@ -26,6 +32,7 @@ export const routes = [
   { path: '/sala/chi-sei', view: whoAmIView },
   { path: '/sala/tavolo/:id', view: tableView },
   { path: '/sala/tavolo/:id/aggiungi', view: tableView },
+  { path: '/sala/tavolo/:id/conto', view: billView },
   { path: '/admin', view: dashboardView, admin: true },
   { path: '/admin/impostazioni', view: settingsView, admin: true },
   { path: '/admin/aree', view: areasView, admin: true },

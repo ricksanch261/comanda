@@ -1,0 +1,27 @@
+/* Preconto: formato scontrino 80 mm, monospazio */
+#print-root { display: none; }
+
+@media print {
+  @page { size: 80mm auto; margin: 0; }
+  html, body { background: #fff !important; color: #000 !important; }
+  body > *:not(#print-root) { display: none !important; }
+  #print-root { display: block !important; }
+  .receipt {
+    width: 72mm;
+    margin: 0 auto;
+    padding: 4mm 0;
+    font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, 'Liberation Mono', monospace;
+    font-size: 11pt;
+    line-height: 1.35;
+    color: #000;
+  }
+  .rc-row { display: flex; justify-content: space-between; gap: 2mm; }
+  .rc-row > span:first-child { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+  .rc-amt { white-space: nowrap; }
+  .rc-center { text-align: center; }
+  .rc-title { font-weight: 700; font-size: 13pt; }
+  .rc-bold { font-weight: 700; }
+  .rc-total { font-weight: 700; font-size: 13pt; }
+  .rc-sub { font-weight: 700; margin-top: 2mm; }
+  .rc-sep { border-top: 1px dashed #000; margin: 2mm 0; }
+}
